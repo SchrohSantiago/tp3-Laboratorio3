@@ -4,13 +4,14 @@ import ar.edu.utn.frbb.tup.model.Cliente;
 import ar.edu.utn.frbb.tup.model.Cuenta;
 import ar.edu.utn.frbb.tup.model.TipoCuenta;
 import ar.edu.utn.frbb.tup.model.TipoMoneda;
+import ar.edu.utn.frbb.tup.model.TipoPersona;
 import ar.edu.utn.frbb.tup.model.exception.CuentaAlreadyExistsException;
 import ar.edu.utn.frbb.tup.model.exception.TipoCuentaAlreadyExistsException;
 import ar.edu.utn.frbb.tup.model.exception.TipoCuentaUnsupported;
 import ar.edu.utn.frbb.tup.persistence.CuentaDao;
-import ar.edu.utn.frbb.tup.persistence.ClienteDao;
+
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,24 +21,13 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doReturn;
+
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
-
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-
-import javax.management.RuntimeErrorException;
 
 @ExtendWith(MockitoExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -47,13 +37,12 @@ public class CuentaServiceTest {
     private CuentaDao cuentaDao;
 
     @Mock
-    private ClienteDao clienteDao;
+    private ClienteService clienteService;
 
     @InjectMocks
     private CuentaService cuentaService;
 
-    @InjectMocks 
-    private ClienteService clienteService;
+    
 
     @BeforeAll
     public void setUp() {
@@ -97,60 +86,51 @@ public class CuentaServiceTest {
         
     }
 
-    // @Test
-    // public void testClienteTieneCuentaDeEseTipo() throws TipoCuentaAlreadyExistsException {
-    //     // Creamos una cuenta existente del mismo tipo para el cliente
-    //     Cuenta cuentaExistente = new Cuenta();
-    //     cuentaExistente.setTipoCuenta(TipoCuenta.CUENTA_CORRIENTE);
-    //     cuentaExistente.setMoneda(TipoMoneda.PESOS);
-    //     cuentaExistente.setNumeroCuenta(123);
+       @Test
+        public void TipoCuentaIgual() throws TipoCuentaAlreadyExistsException, CuentaAlreadyExistsException, TipoCuentaUnsupported {
+        Cliente cliente = new Cliente();
+        Cuenta cuenta = new Cuenta();
+        Cuenta cuenta2 = new Cuenta();
+
+        cliente.setDni(44882709);
+        cliente.setNombre("Santiago");
+
+        cuenta.setTipoCuenta(TipoCuenta.CUENTA_CORRIENTE);
+        cuenta.setMoneda(TipoMoneda.PESOS);
+
+        cuenta2.setTipoCuenta(TipoCuenta.CUENTA_CORRIENTE);
+        cuenta2.setMoneda(TipoMoneda.PESOS);
         
-    //     Cliente cliente = new Cliente();
-    //     cliente.setDni(44882709);
-    //     cuentaExistente.setTitular(cliente);
 
-    //     // Simulamos que el cliente ya tiene una cuenta de ese tipo
-    //     when(cuentaDao.find(cuentaExistente.getNumeroCuenta()))
-    //             .thenReturn(cuentaExistente);
+        when(cuentaDao.find(cuenta.getNumeroCuenta())).thenReturn(null); // no existe
 
-    //     // Creamos una cuenta nueva con el mismo tipo para el cliente
-    //     Cuenta cuentaNueva = new Cuenta();
-    //     cuentaNueva.setTipoCuenta(TipoCuenta.CUENTA_CORRIENTE);
-    //     cuentaNueva.setMoneda(TipoMoneda.PESOS);
-    //     cuentaNueva.setNumeroCuenta(456);
+        cuentaService.darDeAltaCuenta(cuenta, cliente.getDni());
 
-    //     // Al intentar dar de alta la cuenta nueva, debería lanzar TipoCuentaAlreadyExistsException
-    //     assertThrows(TipoCuentaAlreadyExistsException.class, () -> {
-    //         clienteService.agregarCuenta(cuentaNueva, 44882709);
-    //     });
+        doThrow(TipoCuentaAlreadyExistsException.class).when(clienteService).agregarCuenta(cuenta2, cliente.getDni());
 
-    //     // Verificamos que se haya llamado al método agregarCuenta en ClienteService
-    //     verify(clienteService, times(1)).agregarCuenta(cuentaNueva, 44882709);
-    // }
-    
+        assertThrows(TipoCuentaAlreadyExistsException.class, () -> cuentaService.darDeAltaCuenta(cuenta2, cliente.getDni()));
 
-    // @Test
-    // public void testCreateCuentaExitosa() throws CuentaAlreadyExistsException, TipoCuentaUnsupported, TipoCuentaAlreadyExistsException {
-
-    //     Cliente cliente = new Cliente();
-    //     cliente.setDni(44882709);
-
+        verify(clienteService, times(1)).agregarCuenta(cuenta2, cliente.getDni());
+        verify(cuentaDao, times(1)).save(cuenta);
         
-    //     when(clienteDao.find(cliente.getDni(), true )).thenReturn(cliente);
-    //     // Llamar al método darDeAltaCuenta de cuentaService
+    }
 
-    //     Cuenta cuenta = new Cuenta();
-    //     cuenta.setTipoCuenta(TipoCuenta.CUENTA_CORRIENTE);
-    //     cuenta.setMoneda(TipoMoneda.PESOS);
-    //     cuenta.setNumeroCuenta(1234);
+    @Test
+    public void testCuentaCreadaConExito() throws TipoCuentaAlreadyExistsException, CuentaAlreadyExistsException, TipoCuentaUnsupported {
+        Cliente cliente = new Cliente();
+        cliente.setDni(44882709);
+        cliente.setNombre("Santiago");
         
-    //     when(cuentaDao.find(cuenta.getNumeroCuenta())).thenReturn(cuenta);
-    //     clienteService.agregarCuenta(cuenta, 44882709);
-    
-    //     // Verificar que la cuentaDao.save haya sido invocada una vez
-        
-    // verify(cuentaDao, times(1)).save(cuenta);
-    // }
+        Cuenta cuenta = new Cuenta();
+        cuenta.setTipoCuenta(TipoCuenta.CUENTA_CORRIENTE);
+        cuenta.setMoneda(TipoMoneda.PESOS);
+        cuenta.setNumeroCuenta(123123);
+
+        cuentaService.darDeAltaCuenta(cuenta, cliente.getDni());
+
+        verify(clienteService, times(1)).agregarCuenta(cuenta, cliente.getDni());
+        verify(cuentaDao, times(1)).save(cuenta);
+    }
 }
     
 
